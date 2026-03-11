@@ -1,0 +1,43 @@
+-- 1. Количество заявок по статусам
+SELECT requestStatus, COUNT(*) as count
+FROM requests
+GROUP BY requestStatus;
+
+-- 2. Среднее время ремонта (в днях)
+SELECT AVG(DATEDIFF(completionDate, startDate)) as avg_repair_days
+FROM requests
+WHERE completionDate IS NOT NULL;
+
+-- 3. Топ-5 автомехаников по количеству заявок
+SELECT u.fio, COUNT(r.requestID) as requests_count
+FROM users u
+LEFT JOIN requests r ON u.userID = r.masterID
+WHERE u.type = 'Автомеханик'
+GROUP BY u.userID, u.fio
+ORDER BY requests_count DESC
+LIMIT 5;
+
+-- 4. Заявки с комментариями
+SELECT r.requestID, r.carModel, r.problemDescription, 
+       c.message as last_comment, u.fio as comment_author
+FROM requests r
+LEFT JOIN comments c ON r.requestID = c.requestID
+LEFT JOIN users u ON c.masterID = u.userID
+WHERE c.commentID = (
+    SELECT MAX(commentID) 
+    FROM comments c2 
+    WHERE c2.requestID = r.requestID
+);
+
+-- 5. Отчет по выполненным заявкам за период
+SELECT 
+    DATE_FORMAT(startDate, '%Y-%m') as month,
+    COUNT(*) as total_requests,
+    SUM(CASE WHEN requestStatus = 'Готова к выдаче' THEN 1 ELSE 0 END) as completed,
+    AVG(CASE WHEN completionDate IS NOT NULL 
+        THEN DATEDIFF(completionDate, startDate) 
+        ELSE NULL END) as avg_days
+FROM requests
+WHERE startDate >= '2023-01-01' AND startDate <= '2023-12-31'
+GROUP BY DATE_FORMAT(startDate, '%Y-%m')
+ORDER BY month;
